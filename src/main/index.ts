@@ -15,8 +15,9 @@ function createWindow(): void {
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
-    resizable: true,
+    resizable: false,
     autoHideMenuBar: true,
+    backgroundColor: '#00000000',
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -101,8 +102,16 @@ app.whenReady().then(() => {
   ipcMain.on('ping', () => console.log('pong'))
   ipcMain.on('on-resize-window', (event, width, height) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (win) {
-      win.setSize(width, height)
+    if (win && Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+      const bounds = win.getBounds()
+      const centerX = bounds.x + bounds.width / 2
+      const centerY = bounds.y + bounds.height / 2
+      win.setBounds({
+        x: Math.round(centerX - width / 2),
+        y: Math.round(centerY - height / 2),
+        width,
+        height
+      })
     }
   })
 

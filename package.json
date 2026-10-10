@@ -25,6 +25,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "dotenv": "^18.0.7",
     "electron-updater": "^6.3.9",
+    "framer-motion": "^14.1.0",
     "selection-hook": "^2.1.1"
   },
   "devDependencies": {
