@@ -1,25 +1,33 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, screen } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+import SelectionHook from 'selection-hook'
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    width: 50,
+    height: 50,
     show: false,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: true,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      contextIsolation: true
     }
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+  // mainWindow.on('ready-to-show', () => {
+  //   mainWindow.show()
+  // })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -33,6 +41,46 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  const selectionHook = new SelectionHook()
+
+  // Start monitoring the entire OS for text selections
+  selectionHook.start()
+
+  selectionHook.on('text-selection', (data) => {
+    if (data.text) {
+      let targetX, targetY
+
+      // Use selectionHook coordinates first, falllback to cursor position if not available
+      if (data.endBottom && data.endBottom.x && data.endBottom.y) {
+        targetX = data.endBottom.x
+        targetY = data.endBottom.y
+      } else {
+        const cursor = screen.getCursorScreenPoint()
+        targetX = cursor.x + 15 // Offset so it doesn't block the cursor
+        targetY = cursor.y + 15
+      }
+
+      // Move the bubble to where the highlight ended
+      mainWindow.setBounds({
+        x: targetX,
+        y: targetY,
+        width: 50,
+        height: 50
+      })
+
+      // Send the text to React via IPC so it knows what was highlighted
+      mainWindow.webContents.send('on-highlight', data.text)
+
+      // Show the bubble
+      mainWindow.show()
+    }
+  })
+
+  mainWindow.on('blur', () => {
+    mainWindow.webContents.send('on-reset-bubble')
+    mainWindow.hide()
+  })
 }
 
 // This method will be called when Electron has finished
@@ -49,8 +97,14 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
+  // IPC listeners for communication between main and renderer processes
   ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.on('on-resize-window', (event, width, height) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) {
+      win.setSize(width, height)
+    }
+  })
 
   createWindow()
 
