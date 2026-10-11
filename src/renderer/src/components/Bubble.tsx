@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 export default function Bubble(): React.JSX.Element | null {
   const [highlightedText, setHighlightedText] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isExpanding, setIsExpanding] = useState(false)
 
   useEffect(() => {
     const unsubscribe = window.electronAPI.onHighlight((text: string) => {
@@ -12,8 +13,8 @@ export default function Bubble(): React.JSX.Element | null {
     })
 
     const resetListener = window.electronAPI.onResetBubble(() => {
-      setHighlightedText('')
       setIsExpanded(false)
+      setHighlightedText('')
     })
 
     // When the component unmounts, React calls this to destroy the listener
@@ -25,10 +26,18 @@ export default function Bubble(): React.JSX.Element | null {
 
   if (!highlightedText) return null
 
-  const handleExpand = (): void => {
-    if (isExpanded) return
-    setIsExpanded(true)
+  const handleExpand = async (): Promise<void> => {
+    if (isExpanded || isExpanding) return
+
+    setIsExpanding(true)
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
     window.electronAPI.resizeWindow(400, 300)
+    setTimeout(() => {
+      setIsExpanded(true)
+      setIsExpanding(false)
+    }, 100)
   }
 
   return (
@@ -42,15 +51,16 @@ export default function Bubble(): React.JSX.Element | null {
           height: isExpanded ? 300 : 50,
           borderRadius: isExpanded ? 20 : 25,
           scale: isExpanded ? 1 : [0, 1.18, 0.9, 1],
-          opacity: 1
+          opacity: isExpanding ? 0 : 1
         }}
         transition={{
           width: { duration: 0.5, ease: [0.2, 0.8, 0.2, 1] },
           height: { duration: 0.5, ease: [0.2, 0.8, 0.2, 1] },
           borderRadius: { duration: 0.5, ease: 'easeOut' },
           scale: { duration: 0.7, ease: [0.2, 0.8, 0.25, 1.2] },
-          opacity: { duration: 0.2 }
+          opacity: { duration: isExpanding ? 0 : 0.2 }
         }}
+        disabled={isExpanding}
         aria-label={isExpanded ? 'Highlighted text' : 'Expand highlighted text'}
         aria-expanded={isExpanded}
         className="flex shrink-0 cursor-pointer items-center justify-center overflow-hidden border border-white/20 bg-slate-950/95 p-0 text-white shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"

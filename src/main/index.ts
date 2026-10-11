@@ -66,8 +66,8 @@ function createWindow(): void {
       mainWindow.setBounds({
         x: targetX,
         y: targetY,
-        width: 50,
-        height: 50
+        width: 75,
+        height: 75
       })
 
       // Send the text to React via IPC so it knows what was highlighted
@@ -80,6 +80,7 @@ function createWindow(): void {
 
   mainWindow.on('blur', () => {
     mainWindow.webContents.send('on-reset-bubble')
+    mainWindow.setSize(75, 75)
     mainWindow.hide()
   })
 }
